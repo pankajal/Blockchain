@@ -25,34 +25,34 @@ public class AgentServerThread extends Thread {
         try (
                 ObjectOutputStream out = new ObjectOutputStream(client.getOutputStream());
                 final ObjectInputStream in = new ObjectInputStream(client.getInputStream())) {
-            Message message = new Message.MessageBuilder().withSender(agent.getPort()).withType(READY).build();
-            out.writeObject(message);
-            Object fromClient;
-            while ((fromClient = in.readObject()) != null) {
-                if (fromClient instanceof Message) {
-                    final Message msg = (Message) fromClient;
-                    System.out.println(String.format("%d received: %s", agent.getPort(), fromClient.toString()));
-                    if (INFO_NEW_BLOCK == msg.type) {
-                        if (msg.blocks.isEmpty() || msg.blocks.size() > 1) {
-                            System.err.println("Invalid block received: " + msg.blocks);
+                    Message message = new Message.MessageBuilder().withSender(agent.getPort()).withType(READY).build();
+                    out.writeObject(message);
+                    Object fromClient;
+                    while ((fromClient = in.readObject()) != null) {
+                        if (fromClient instanceof Message) {
+                            final Message msg = (Message) fromClient;
+                            System.out.println(String.format("%d received: %s", agent.getPort(), fromClient.toString()));
+                            if (INFO_NEW_BLOCK == msg.type) {
+                                if (msg.blocks.isEmpty() || msg.blocks.size() > 1) {
+                                    System.err.println("Invalid block received: " + msg.blocks);
+                                }
+                                synchronized (agent) {
+                                    agent.addBlock(msg.blocks.get(0));
+                                }
+                                break;
+                            } else if (REQ_ALL_BLOCKS == msg.type) {
+                                out.writeObject(new Message.MessageBuilder()
+                                        .withSender(agent.getPort())
+                                        .withType(RSP_ALL_BLOCKS)
+                                        .withBlocks(agent.getBlockchain())
+                                        .build());
+                                break;
+                            }
                         }
-                        synchronized (agent) {
-                            agent.addBlock(msg.blocks.get(0));
-                        }
-                        break;
-                    } else if (REQ_ALL_BLOCKS == msg.type) {
-                        out.writeObject(new Message.MessageBuilder()
-                                .withSender(agent.getPort())
-                                .withType(RSP_ALL_BLOCKS)
-                                .withBlocks(agent.getBlockchain())
-                                .build());
-                        break;
                     }
-                }
+                    client.close();
+            } catch (ClassNotFoundException | IOException e) {
+                e.printStackTrace();
             }
-            client.close();
-        } catch (ClassNotFoundException | IOException e) {
-            e.printStackTrace();
-        }
     }
 }
